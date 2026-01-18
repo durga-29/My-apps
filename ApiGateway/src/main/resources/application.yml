@@ -1,0 +1,80 @@
+server:
+  port: 8089
+spring:
+  application:
+    name: APIGATEWAY	
+  cloud:
+    gateway: 
+      httpclient:
+        websocket:
+          max-frame-payload-length: 65536       
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins:
+            - "http://localhost:5173"
+            - "http://myapp-alb-77272279.us-east-1.elb.amazonaws.com"
+            - "http://localhost:3000"
+            allowed-methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+            allowed-headers: "*"
+            exposed-headers:
+            - Authorization
+            - Content-Type
+            allow-credentials: true
+      default-filters:
+      - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+      routes:
+            - id: preflight-route
+              uri: no://preflight
+              predicates:
+                - Method=OPTIONS
+              filters:
+                - SetStatus=200 
+            - id: FLEET
+              uri: lb://FLEET
+              predicates:
+                - Path=/api/v1/model/**, /api/v1/variant/**, /api/v1/vehicle/**, /api/v1/ecu/**, /api/v1/rollout/**, /api/v1/dynamic/**, /api/v1/ecuBinary/**
+            - id: USERMANAGEMENT
+              uri: lb://USERMANAGEMENT
+              predicates:
+                - Path=/api/v1/um/** , /api/v1/cm/**, /api/v1/am/**		
+            - id: WS-DOWNLOAD
+              uri: lb://FLEET
+              predicates:
+                - Path=/ws/download/**
+              filters:
+                - RewritePath=/ws/download/(?<segment>.*), /ws/download/${segment}
+              metadata:
+                websocket: true
+            - id: WS-DEVICE
+              uri: lb://FLEET
+              predicates:
+                - Path=/ws/device/**
+              metadata:
+                websocket: true
+            - id: WS-INSTALL
+              uri: lb://FLEET
+              predicates:
+                - Path=/ws/install/**
+              metadata:
+                websocket: true
+            - id: WS-UPLOAD
+              uri: lb://FLEET
+              predicates:
+                - Path=/ws/upload/**
+              metadata:
+                websocket: true
+eureka:
+  instance:
+    prefer-ip-address: true
+  client:
+    fetch-registry: true
+    register-with-eureka: true 
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+#	                                             need to mention every controllers url in path of gateway
